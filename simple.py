@@ -9,6 +9,7 @@ from cgi import parse_header, parse_multipart
 import pyotp
 
 PORT = 8000
+SSL_STATUS = False # if set to True, cookies will only be set for SSL enabled connections
 TOKEN_LIFETIME = 60 * 60 * 24
 LAST_LOGIN_ATTEMPT = 0
 REGISTERED = True
@@ -68,12 +69,6 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
 
             # Otherwise return 401, which will be redirected to '/auth/login' upstream
             self.send_response(401)
-            self.end_headers()
-            return
-
-        if self.path == '/auth/login':
-            # Render out the login form
-            self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
             self.wfile.write(bytes(FORM, 'UTF-8'))
@@ -105,9 +100,9 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
             cookie = http.cookies.SimpleCookie()
             cookie["token"] = '***'
             cookie["token"]["path"] = '/'
-            cookie["token"]["secure"] = True
+            cookie["token"]["secure"] = SSL_STATUS
             self.send_header('Set-Cookie', cookie.output(header=''))
-            self.send_header('Location', '/')
+            self.send_header('Location', '/auth/check')
             self.end_headers()
             return
 
@@ -132,18 +127,18 @@ class AuthHandler(http.server.BaseHTTPRequestHandler):
                 cookie = http.cookies.SimpleCookie()
                 cookie["token"] = TOKEN_MANAGER.generate()
                 cookie["token"]["path"] = "/"
-                cookie["token"]["secure"] = True
+                cookie["token"]["secure"] = SSL_STATUS
 
                 self.send_response(302)
                 self.send_header('Set-Cookie', cookie.output(header=''))
-                self.send_header('Location', '/')
+                self.send_header('Location', '/auth/check')
                 self.end_headers()
                 return
 
-            # Otherwise redirect back to the login page
+            # Otherwise redirect back to the auth check page
             else:
                 self.send_response(302)
-                self.send_header('Location', '/auth/login')
+                self.send_header('Location', '/auth/check')
                 self.end_headers()
                 return
 
